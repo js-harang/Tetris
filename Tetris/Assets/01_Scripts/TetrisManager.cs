@@ -1,6 +1,8 @@
 using AYellowpaper.SerializedCollections;
+using System;
 using Unity.VisualScripting;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public enum TetrominoType : byte
 {
@@ -53,38 +55,137 @@ public class TetrisManager : Singleton<TetrisManager>
 
         if (Input.GetKeyDown(KeyCode.A))
         {
+            SetGridState(0);
+
             currentTetrominoData.transform.position += Vector3.left;
 
-            if (CheckBlockCollision()) currentTetrominoData.transform.position -= Vector3.left;
+            SetGridState(1);
+
+            if (CheckBlockCollision())
+            {
+                SetGridState(0);
+
+                currentTetrominoData.transform.position -= Vector3.left;
+
+                SetGridState(1);
+            }
         }
 
         if (Input.GetKeyDown(KeyCode.D))
         {
+            SetGridState(0);
+
             currentTetrominoData.transform.position += Vector3.right;
 
-            if (CheckBlockCollision()) currentTetrominoData.transform.position -= Vector3.right;
+            SetGridState(1);
+
+            if (CheckBlockCollision())
+            {
+                SetGridState(0);
+
+                currentTetrominoData.transform.position -= Vector3.right;
+
+                SetGridState(1);
+            }
         }
 
         if (Input.GetKeyDown(KeyCode.W))
         {
+            SetGridState(0);
+
             currentTetrominoData.transform.Rotate(new Vector3(0, 0, -90));
 
-            if (CheckBlockCollision()) currentTetrominoData.transform.Rotate(new Vector3(0, 0, 90));
+            SetGridState(1);
+
+            if (CheckBlockCollision())
+            {
+                SetGridState(0);
+
+                currentTetrominoData.transform.Rotate(new Vector3(0, 0, 90));
+
+                SetGridState(1);
+            }
         }
 
         currentDropTime -= Time.deltaTime;
 
         if (currentDropTime <= 0)
         {
+            SetGridState(0);
+
             currentTetrominoData.transform.position += Vector3.down;
 
-            if (CheckBlockFinishMove())
+
+            if (GridOverlapCheck())
             {
                 currentTetrominoData.transform.position -= Vector3.down;
+
+                SetGridState(1);
                 SpawnTetromino();
+            }
+            else
+            {
+                SetGridState(1);
+
+                var (minX, minY, maxX, maxY) = GetGridState();
+
+                if (minY == -1)
+                {
+                    SetGridState(0);
+
+                    currentTetrominoData.transform.position -= Vector3.down;
+
+                    SetGridState(1);
+                    SpawnTetromino();
+                }
             }
 
             currentDropTime = dropTime;
+        }
+    }
+
+    private (int, int, int, int) GetGridState()
+    {
+        int minX = Int32.MaxValue;
+        int minY = Int32.MaxValue;
+        int maxX = Int32.MinValue;
+        int maxY = Int32.MinValue;
+
+        foreach (var block in currentTetrominoData.Blocks)
+        {
+            int x = (int)(block.transform.position.x + 5);
+            int y = (int)(block.transform.position.y + 9);
+            minX = Mathf.Min(minX, x);
+            minY = Mathf.Min(minY, y);
+            maxX = Mathf.Max(maxX, x);
+            maxY = Mathf.Max(maxY, y);
+        }
+
+        return (minX, maxY, minX, maxX);
+    }
+
+    private bool GridOverlapCheck()
+    {
+        foreach (var block in currentTetrominoData.Blocks)
+        {
+            int y = (int)(block.transform.position.y + 9);
+            int x = (int)(block.transform.position.x + 5);
+
+            if (y >= 0 && x >= 0 && grid[y][x] == 1) return true;
+        }
+
+        return false;
+    }
+
+    private void SetGridState(int state)
+    {
+        foreach (var block in currentTetrominoData.Blocks)
+        {
+            int y = (int)(block.transform.position.y + 9);
+            int x = (int)(block.transform.position.x + 5);
+
+            if (y >= 0 && x >= 0)
+                grid[y][x] = state;
         }
     }
 
@@ -97,14 +198,14 @@ public class TetrisManager : Singleton<TetrisManager>
         spawndTetromino.TryGetComponent(out currentTetrominoData);
     }
 
-
     private bool CheckBlockCollision()
     {
         foreach (var block in currentTetrominoData.Blocks)
         {
-            if (block.position.x < leftLimitPosition) return true;
+            int y = (int)(block.transform.position.y + 9);
+            int x = (int)(block.transform.position.x + 5);
 
-            if (block.position.x > rightLimitPosition) return true;
+            if (x >= 0 && x < grid[0].Length) return false;
         }
 
         return false;
